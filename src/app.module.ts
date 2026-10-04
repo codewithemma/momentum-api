@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { LeadsModule } from './leads/leads.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { LeadsModule } from './leads/leads.module.js';
     PrismaModule,
     RedisModule,
     LeadsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

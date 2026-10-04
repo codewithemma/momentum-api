@@ -48,6 +48,26 @@ export class LeadsService {
         },
       });
 
+      if (dto.nextFollowUpAt) {
+        const followUpDate = new Date(dto.nextFollowUpAt);
+
+        await tx.leadActivity.create({
+          data: {
+            leadId: lead.id,
+            type: ActivityType.FOLLOW_UP_SCHEDULED,
+            title: 'Follow-up scheduled',
+            description: `Follow-up scheduled for ${followUpDate.toLocaleDateString(
+              'en-US',
+              {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              },
+            )}`,
+          },
+        });
+      }
+
       return lead;
     });
 
