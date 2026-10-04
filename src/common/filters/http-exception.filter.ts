@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 // import { SentryExceptionCaptured } from '@sentry/nestjs';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {

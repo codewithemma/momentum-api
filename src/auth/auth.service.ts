@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import crypto from 'crypto';
-import { type Request } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NextjsGoogleLoginDto } from './dto/google-login.dto.js';
