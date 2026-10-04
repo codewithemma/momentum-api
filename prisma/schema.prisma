@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  module   = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String?
+  image               String?
+
+  googleId            String?  @unique
+  isEmailVerified     Boolean  @default(false)
+
+  isOnboarded         Boolean  @default(false)
+  onboardingCompletedAt DateTime?
+
+  role                UserRole?
+  clientSources       ClientSource[]
+  referralSource      ReferralSource?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  leads               Lead[]
+  refreshSessions RefreshSession[]
+
+}
+
+model Lead {
+  id              String   @id @default(cuid())
+  userId          String
+
+  name            String
+  company         String?
+  email           String?
+  phone           String?
+  website         String?
+  industry        String?
+  status          LeadStatus @default(NEW)
+  source          String?
+  notes           String?
+  nextFollowUpAt  DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities      LeadActivity[]
+
+  @@index([userId])
+}
+
+
+model LeadActivity {
+  id          String       @id @default(cuid())
+  leadId      String
+  type        ActivityType
+  title       String
+  description String?
+  createdAt   DateTime     @default(now())
+
+  lead Lead @relation(fields: [leadId],references: [id],onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([leadId, createdAt])
+}
+
+model RefreshSession {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
+enum UserRole {
+  DEVELOPER
+  DESIGNER
+  CONSULTANT
+  AGENCY
+  FREELANCER
+  OTHER
+}
+
+enum ClientSource {
+  INSTAGRAM
+  LINKEDIN
+  X
+  COLD_EMAIL
+  REFERRALS
+  FREELANCE_PLATFORMS
+  NETWORKING
+  OTHER
+}
+
+enum ReferralSource {
+  X
+  INSTAGRAM
+  LINKEDIN
+  GOOGLE
+  FRIEND
+  PRODUCT_HUNT
+  RECOMMENDATION
+  OTHER
+}
+
+enum LeadSource {
+  INSTAGRAM
+  LINKEDIN
+  X
+  COLD_EMAIL
+  REFERRAL
+  FREELANCE_PLATFORM
+  NETWORKING
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  REPLIED
+  INTERESTED
+  PROPOSAL
+  WON
+  LOST
+}
+
+enum ActivityType {
+ LEAD_CREATED
+  STATUS_CHANGED
+  FOLLOW_UP_SCHEDULED
+  FOLLOW_UP_UPDATED
+  FOLLOW_UP_CLEARED
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+}
