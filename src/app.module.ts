@@ -14,6 +14,8 @@ import { LeadsModule } from './leads/leads.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { InternalModule } from './internal/internal.module.js';
+import { MailModule } from './mail/mail.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { InternalModule } from './internal/internal.module.js';
     DashboardModule,
     NotificationsModule,
     InternalModule,
+    MailModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [

@@ -23,6 +23,7 @@ model User {
   role                UserRole?
   clientSources       ClientSource[]
   referralSource      ReferralSource?
+  defaultLeadSource   LeadSource?
 
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

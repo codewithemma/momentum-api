@@ -1,18 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { MailService } from '../mail/mail.service.js';
 import { NotificationType } from '../generated/prisma/enums.js';
+
+type ReminderLead = {
+  id: string;
+  userId: string;
+  name: string;
+  company: string | null;
+  nextFollowUpAt: Date | null;
+};
 
 @Injectable()
 export class FollowUpReminderService {
   private readonly logger = new Logger(FollowUpReminderService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   async processDailyReminders() {
     const { startOfDay, startOfNextDay } = this.getLagosDayBounds();
 
     this.logger.log(
-      `Processing follow-up reminders for ${startOfDay.toISOString()}`,
+      `Processing follow-up reminders for ${this.formatLagosDate(startOfDay)}`,
     );
 
     const [dueFollowUps, overdueFollowUps] = await Promise.all([
@@ -20,38 +32,33 @@ export class FollowUpReminderService {
       this.getOverdueFollowUps(startOfDay),
     ]);
 
-    let dueCreated = 0;
-    let overdueCreated = 0;
+    const createdDue = await this.createDueNotifications(dueFollowUps);
 
-    for (const lead of dueFollowUps) {
-      const created = await this.createDueNotification(lead);
+    const createdOverdue =
+      await this.createOverdueNotifications(overdueFollowUps);
 
-      if (created) {
-        dueCreated++;
-      }
-    }
-
-    for (const lead of overdueFollowUps) {
-      const created = await this.createOverdueNotification(lead);
-
-      if (created) {
-        overdueCreated++;
-      }
-    }
+    // ONLY send emails for reminders that were actually created
+    await this.sendReminderEmails(createdDue, createdOverdue);
 
     this.logger.log(
-      `Reminder processing complete. Due: ${dueCreated}, Overdue: ${overdueCreated}`,
+      `Reminder processing complete. Due found: ${dueFollowUps.length}, ` +
+        `overdue found: ${overdueFollowUps.length}, ` +
+        `due notifications created: ${createdDue.length}, ` +
+        `overdue notifications created: ${createdOverdue.length}`,
     );
 
     return {
       dueFound: dueFollowUps.length,
       overdueFound: overdueFollowUps.length,
-      dueCreated,
-      overdueCreated,
+      dueCreated: createdDue.length,
+      overdueCreated: createdOverdue.length,
     };
   }
 
-  private async getDueFollowUps(startOfDay: Date, startOfNextDay: Date) {
+  private async getDueFollowUps(
+    startOfDay: Date,
+    startOfNextDay: Date,
+  ): Promise<ReminderLead[]> {
     return this.prisma.lead.findMany({
       where: {
         nextFollowUpAt: {
@@ -69,7 +76,7 @@ export class FollowUpReminderService {
     });
   }
 
-  private async getOverdueFollowUps(startOfDay: Date) {
+  private async getOverdueFollowUps(startOfDay: Date): Promise<ReminderLead[]> {
     return this.prisma.lead.findMany({
       where: {
         nextFollowUpAt: {
@@ -86,84 +93,172 @@ export class FollowUpReminderService {
     });
   }
 
-  private async createDueNotification(lead: {
-    id: string;
-    userId: string;
-    name: string;
-    company: string | null;
-    nextFollowUpAt: Date | null;
-  }) {
-    if (!lead.nextFollowUpAt) {
-      return false;
-    }
+  private async createDueNotifications(
+    leads: ReminderLead[],
+  ): Promise<ReminderLead[]> {
+    const created: ReminderLead[] = [];
 
-    const followUpDate = this.formatLagosDate(lead.nextFollowUpAt);
+    for (const lead of leads) {
+      if (!lead.nextFollowUpAt) continue;
 
-    const dedupeKey = `FOLLOW_UP_DUE:${lead.id}:${followUpDate}`;
+      const followUpDate = this.formatLagosDate(lead.nextFollowUpAt);
 
-    try {
-      await this.prisma.notification.create({
-        data: {
-          userId: lead.userId,
-          leadId: lead.id,
-          type: NotificationType.FOLLOW_UP_DUE,
-          title: 'Follow-up due',
-          message: `${lead.name} is due for follow-up today.`,
-          dedupeKey,
-        },
-      });
+      const dedupeKey = `FOLLOW_UP_DUE:${lead.id}:${followUpDate}`;
 
-      return true;
-    } catch (error) {
-      if (this.isUniqueConstraintError(error)) {
-        return false;
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: lead.userId,
+            leadId: lead.id,
+            type: NotificationType.FOLLOW_UP_DUE,
+            title: 'Follow-up due',
+            message: `${lead.name} is due for follow-up today.`,
+            dedupeKey,
+          },
+        });
+
+        created.push(lead);
+      } catch (error) {
+        if (this.isUniqueConstraintError(error)) {
+          continue;
+        }
+
+        throw error;
       }
-
-      throw error;
     }
+
+    return created;
   }
 
-  private async createOverdueNotification(lead: {
-    id: string;
-    userId: string;
-    name: string;
-    company: string | null;
-    nextFollowUpAt: Date | null;
-  }) {
-    if (!lead.nextFollowUpAt) {
-      return false;
+  private async createOverdueNotifications(
+    leads: ReminderLead[],
+  ): Promise<ReminderLead[]> {
+    const created: ReminderLead[] = [];
+
+    for (const lead of leads) {
+      if (!lead.nextFollowUpAt) continue;
+
+      const followUpDate = this.formatLagosDate(lead.nextFollowUpAt);
+
+      const dedupeKey = `FOLLOW_UP_OVERDUE:${lead.id}:${followUpDate}`;
+
+      try {
+        await this.prisma.notification.create({
+          data: {
+            userId: lead.userId,
+            leadId: lead.id,
+            type: NotificationType.FOLLOW_UP_OVERDUE,
+            title: 'Follow-up overdue',
+            message: `${lead.name}'s follow-up is overdue.`,
+            dedupeKey,
+          },
+        });
+
+        created.push(lead);
+      } catch (error) {
+        if (this.isUniqueConstraintError(error)) {
+          continue;
+        }
+
+        throw error;
+      }
     }
 
-    const followUpDate = this.formatLagosDate(lead.nextFollowUpAt);
+    return created;
+  }
 
-    const dedupeKey = `FOLLOW_UP_OVERDUE:${lead.id}:${followUpDate}`;
+  private async sendReminderEmails(
+    dueFollowUps: ReminderLead[],
+    overdueFollowUps: ReminderLead[],
+  ) {
+    const remindersByUser = new Map<
+      string,
+      {
+        dueToday: ReminderLead[];
+        overdue: ReminderLead[];
+      }
+    >();
 
-    try {
-      await this.prisma.notification.create({
-        data: {
-          userId: lead.userId,
-          leadId: lead.id,
-          type: NotificationType.FOLLOW_UP_OVERDUE,
-          title: 'Follow-up overdue',
-          message: `${lead.name}'s follow-up is overdue.`,
-          dedupeKey,
-        },
-      });
-
-      return true;
-    } catch (error) {
-      if (this.isUniqueConstraintError(error)) {
-        return false;
+    for (const lead of dueFollowUps) {
+      if (!remindersByUser.has(lead.userId)) {
+        remindersByUser.set(lead.userId, {
+          dueToday: [],
+          overdue: [],
+        });
       }
 
-      throw error;
+      remindersByUser.get(lead.userId)!.dueToday.push(lead);
+    }
+
+    for (const lead of overdueFollowUps) {
+      if (!remindersByUser.has(lead.userId)) {
+        remindersByUser.set(lead.userId, {
+          dueToday: [],
+          overdue: [],
+        });
+      }
+
+      remindersByUser.get(lead.userId)!.overdue.push(lead);
+    }
+
+    const userIds = [...remindersByUser.keys()];
+
+    if (userIds.length === 0) {
+      return;
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: userIds,
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    for (const user of users) {
+      if (!user.email) {
+        continue;
+      }
+
+      const reminders = remindersByUser.get(user.id);
+
+      if (!reminders) {
+        continue;
+      }
+
+      try {
+        await this.mailService.sendFollowUpReminderEmail({
+          email: user.email,
+          dueToday: reminders.dueToday.map((lead) => ({
+            id: lead.id,
+            name: lead.name,
+            company: lead.company,
+          })),
+          overdue: reminders.overdue.map((lead) => ({
+            id: lead.id,
+            name: lead.name,
+            company: lead.company,
+          })),
+        });
+
+        this.logger.log(`Follow-up reminder email sent to ${user.email}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send follow-up reminder email to ${user.email}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
     }
   }
 
   private getLagosDayBounds() {
     const now = new Date();
 
-    // Nigeria is UTC+1.
+    // Africa/Lagos is UTC+1.
     const lagosNow = new Date(now.getTime() + 60 * 60 * 1000);
 
     const year = lagosNow.getUTCFullYear();
@@ -196,7 +291,7 @@ export class FollowUpReminderService {
 
   private isUniqueConstraintError(error: unknown) {
     return (
-      error &&
+      error !== null &&
       typeof error === 'object' &&
       'code' in error &&
       error.code === 'P2002'
