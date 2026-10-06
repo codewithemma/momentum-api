@@ -12,6 +12,8 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { LeadsModule } from './leads/leads.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
+import { InternalModule } from './internal/internal.module.js';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { DashboardModule } from './dashboard/dashboard.module.js';
     RedisModule,
     LeadsModule,
     DashboardModule,
+    NotificationsModule,
+    InternalModule,
   ],
   controllers: [AppController],
   providers: [

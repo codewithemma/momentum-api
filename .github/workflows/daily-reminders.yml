@@ -1,0 +1,19 @@
+name: Daily Follow-up Reminders
+
+on:
+  schedule:
+    - cron: '10 6 * * *'
+      timezone: 'Africa/Lagos'
+  workflow_dispatch:
+
+jobs:
+  process-reminders:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Process daily reminders
+        run: |
+          curl --fail-with-body \
+            --request POST \
+            --header "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.BASE_URL }}/internal/reminders/daily"

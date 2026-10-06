@@ -30,6 +30,8 @@ model User {
   leads               Lead[]
   refreshSessions RefreshSession[]
 
+
+  notifications Notification[]
 }
 
 model Lead {
@@ -54,9 +56,8 @@ model Lead {
   activities      LeadActivity[]
 
   @@index([userId])
+  notifications Notification[]
 }
-
-
 model LeadActivity {
   id          String       @id @default(cuid())
   leadId      String
@@ -69,6 +70,30 @@ model LeadActivity {
 
   @@index([leadId])
   @@index([leadId, createdAt])
+}
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  leadId    String?
+
+  type      NotificationType
+  title     String
+  message   String
+  dedupeKey String           @unique
+
+  read      Boolean          @default(false)
+  readAt    DateTime?
+
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([leadId])
 }
 
 model RefreshSession {
@@ -147,4 +172,9 @@ enum ActivityType {
   CALL
   EMAIL
   MEETING
+}
+
+enum NotificationType {
+  FOLLOW_UP_DUE
+  FOLLOW_UP_OVERDUE
 }
