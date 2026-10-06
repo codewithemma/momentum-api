@@ -12,8 +12,11 @@ jobs:
 
     steps:
       - name: Process daily reminders
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl --fail-with-body \
             --request POST \
-            --header "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.BASE_URL }}/internal/reminders/daily"
+            --header "x-cron-secret: ${CRON_SECRET}" \
+            "${BASE_URL}/internal/reminders/daily"
