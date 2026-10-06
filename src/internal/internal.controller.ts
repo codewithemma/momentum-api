@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { FollowUpReminderService } from '../notifications/follow-up-reminder.service.js';
+import { Public } from '../auth/decorators/auth.decorator.js';
 
 @Controller('internal')
 export class InternalController {
@@ -15,6 +16,7 @@ export class InternalController {
   ) {}
 
   @HttpCode(HttpStatus.OK)
+  @Public()
   @Post('reminders/daily')
   async processDailyReminders(@Headers('x-cron-secret') cronSecret: string) {
     if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
