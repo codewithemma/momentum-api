@@ -32,7 +32,7 @@ export class MailService {
   }) {
     if (process.env.NODE_ENV === 'production') {
       await this.resend.emails.send({
-        from: 'Momentum <verify@mail.codewithemma.dev>',
+        from: 'Momentum <notifications@mail.codewithemma.dev>',
         to,
         subject,
         html,
@@ -42,7 +42,7 @@ export class MailService {
     }
 
     await this.transporter!.sendMail({
-      from: 'Momentum <verify@mail.codewithemma.dev>',
+      from: 'Momentum <notifications@mail.codewithemma.dev>',
       to,
       subject,
       html,
