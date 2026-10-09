@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem in the Momentum API
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include passwords, access tokens, secrets, personal information, or unsanitized production logs.
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Describe the smallest sequence of requests or actions that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or response
+      description: Remove credentials, tokens, personal data, and sensitive URLs before sharing.
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Node.js, pnpm, OS, database/Redis versions, and commit or release.
+    validations:
+      required: true
